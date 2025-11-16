@@ -448,16 +448,25 @@
         let model = null;
 
         // تهيئة النموذج
-        async function initModel() {
-            const modelURL = 'model.json';
-            const metadataURL = 'metadata.json';
-            
+        async function loadModel() {
             try {
+                showStatus('جاري تحميل النموذج...', 'info');
+                
+                // استخدام المسارات النسبية
+                const modelURL = './model.json';
+                const metadataURL = './metadata.json';
+                
+                console.log('جاري تحميل النموذج من:', modelURL);
+                
                 model = await tmImage.load(modelURL, metadataURL);
+                
+                isModelLoaded = true;
+                showStatus('✅ تم تحميل النموذج بنجاح!', 'success');
                 console.log('تم تحميل النموذج بنجاح');
+                
             } catch (error) {
-                console.error('حدث خطأ في تحميل النموذج:', error);
-                alert('حدث خطأ في تحميل نموذج الذكاء الاصطناعي. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+                console.error('خطأ في تحميل النموذج:', error);
+                showStatus('❌ خطأ في تحميل النموذج. تأكد من وجود الملفات في المجلد الصحيح.', 'error');
             }
         }
 
