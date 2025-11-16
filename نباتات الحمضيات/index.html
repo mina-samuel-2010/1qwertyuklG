@@ -330,6 +330,32 @@
             to { transform: rotate(360deg); }
         }
         
+        .status-message {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .status-info {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+        
+        .status-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .status-error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        
         @media (max-width: 768px) {
             .upload-options {
                 flex-direction: column;
@@ -360,6 +386,8 @@
         </header>
         
         <main class="main-content">
+            <div id="status-area"></div>
+            
             <section class="upload-section">
                 <h2 class="section-title">كيف تريد تشخيص نباتك؟</h2>
                 <p>اختر طريقة لتحميل صورة نباتك الحمضي للحصول على تشخيص فوري</p>
@@ -443,14 +471,31 @@
         const resultSection = document.getElementById('result-section');
         const resultContent = document.getElementById('result-content');
         const newAnalysisBtn = document.getElementById('new-analysis-btn');
+        const statusArea = document.getElementById('status-area');
 
         let stream = null;
         let model = null;
+        let isModelLoaded = false;
+
+        // عرض رسالة حالة
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            statusArea.innerHTML = '';
+            statusArea.appendChild(statusDiv);
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
 
         // تهيئة النموذج
-        async function loadModel() {
+        async function initModel() {
             try {
-                showStatus('جاري تحميل النموذج...', 'info');
+                showStatus('جاري تحميل نموذج الذكاء الاصطناعي...', 'info');
                 
                 // استخدام المسارات النسبية
                 const modelURL = './model.json';
@@ -461,24 +506,29 @@
                 model = await tmImage.load(modelURL, metadataURL);
                 
                 isModelLoaded = true;
-                showStatus('✅ تم تحميل النموذج بنجاح!', 'success');
+                showStatus('✅ تم تحميل النموذج بنجاح! يمكنك الآن تحميل الصور للتحليل.', 'success');
                 console.log('تم تحميل النموذج بنجاح');
                 
             } catch (error) {
                 console.error('خطأ في تحميل النموذج:', error);
-                showStatus('❌ خطأ في تحميل النموذج. تأكد من وجود الملفات في المجلد الصحيح.', 'error');
+                showStatus('❌ خطأ في تحميل النموذج. تأكد من وجود ملفات النموذج (model.json، metadata.json، weights.bin) في المجلد الصحيح.', 'error');
             }
         }
 
         // بدء الكاميرا
         async function startCamera() {
             try {
+                if (!isModelLoaded) {
+                    showStatus('يرجى الانتظار حتى يتم تحميل النموذج أولاً', 'error');
+                    return;
+                }
+                
                 stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 cameraPreview.srcObject = stream;
                 cameraContainer.style.display = 'block';
             } catch (error) {
                 console.error('خطأ في الوصول إلى الكاميرا:', error);
-                alert('لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.');
+                showStatus('لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.', 'error');
             }
         }
 
@@ -493,8 +543,8 @@
 
         // تحليل الصورة
         async function analyzeImage(imageElement) {
-            if (!model) {
-                alert('لم يتم تحميل النموذج بعد. يرجى الانتظار قليلاً.');
+            if (!isModelLoaded || !model) {
+                showStatus('لم يتم تحميل النموذج بعد. يرجى الانتظار قليلاً.', 'error');
                 return;
             }
 
@@ -505,7 +555,7 @@
                 displayResults(prediction);
             } catch (error) {
                 console.error('خطأ في تحليل الصورة:', error);
-                alert('حدث خطأ أثناء تحليل الصورة. يرجى المحاولة مرة أخرى.');
+                showStatus('حدث خطأ أثناء تحليل الصورة. يرجى المحاولة مرة أخرى.', 'error');
             } finally {
                 loading.style.display = 'none';
             }
@@ -673,6 +723,10 @@
 
         // معالجة اختيار رفع الصورة
         uploadOption.addEventListener('click', () => {
+            if (!isModelLoaded) {
+                showStatus('يرجى الانتظار حتى يتم تحميل النموذج أولاً', 'error');
+                return;
+            }
             fileInput.click();
         });
 
