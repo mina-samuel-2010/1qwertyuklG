@@ -837,57 +837,17 @@
 
         let stream = null;
         let model = null;
-        let isModelLoaded = false;
 
-// استبدل دالة loadModel الحالية بهذه الدالة المحسنة
-async function loadModel() {
-    try {
-        showStatus('جاري تحميل نموذج الذكاء الاصطناعي...', 'info');
-        
-        // المسارات النسبية لملفات النموذج
-        const modelURL = './model.json';
-        const metadataURL = './metadata.json';
-        
-        console.log('جاري تحميل النموذج من:', modelURL);
-        
-        // تحميل النموذج مع معالجة الأخطاء
-        model = await tmImage.load(modelURL, metadataURL);
-        
-        isModelLoaded = true;
-        showStatus('✅ تم تحميل النموذج بنجاح! يمكنك الآن تحميل الصور للتحليل.', 'success');
-        console.log('تم تحميل النموذج بنجاح');
-        
-    } catch (error) {
-        console.error('خطأ في تحميل النموذج:', error);
-        showStatus('❌ خطأ في تحميل النموذج. تأكد من وجود ملفات النموذج (model.json و metadata.json) في المجلد الصحيح.', 'error');
-        
-        // عرض رسالة مساعدة للمستخدم
-        setTimeout(() => {
-            alert('ملاحظة: للتشغيل المحلي، تأكد من:\n1. وجود ملفات model.json و metadata.json في نفس مجلد index.html\n2. استخدام خادم محلي (مثل Live Server) بدلاً من فتح الملف مباشرة');
-        }, 1000);
-    }
-}
-
-        // ✅ جديد: الدالة الصحيحة مع رسائل حالة
-async function initModel() {
-    try {
-        showStatus('جاري تحميل نموذج الذكاء الاصطناعي...', 'info');
-        
-        const modelURL = './model.json';
-        const metadataURL = './metadata.json';
-        
-        console.log('جاري تحميل النموذج من:', modelURL);
-        
-        model = await tmImage.load(modelURL, metadataURL);
-        
-        isModelLoaded = true; // ✅ جديد: تحديث حالة التحميل
-        showStatus('✅ تم تحميل النموذج بنجاح! يمكنك الآن تحميل الصور للتحليل.', 'success');
-        
-    } catch (error) {
-        console.error('خطأ في تحميل النموذج:', error);
-        showStatus('❌ خطأ في تحميل النموذج. تأكد من وجود ملفات النموذج...', 'error');
-    }
-}
+        async function loadModel() {
+            try {
+                const modelURL = './model.json';
+                const metadataURL = './metadata.json';
+                model = await tmImage.load(modelURL, metadataURL);
+                console.log('تم تحميل النموذج بنجاح');
+            } catch (error) {
+                console.error('خطأ في تحميل النموذج:', error);
+            }
+        }
 
         async function startCamera() {
             try {
@@ -908,46 +868,24 @@ async function initModel() {
             cameraContainer.style.display = 'none';
         }
 
-// ✅ محسّن: معالجة أفضل للأخطاء في تحليل الصور
+        async function analyzeImage(imageElement) {
+            if (!model) {
+                alert('لم يتم تحميل النموذج بعد. يرجى الانتظار قليلاً.');
+                return;
+            }
 
-async function analyzeImage(imageElement) {
-    // التحقق من تحميل النموذج
-    if (!isModelLoaded || !model) {
-        showStatus('لم يتم تحميل النموذج بعد. يرجى الانتظار قليلاً.', 'error');
-        return;
-    }
-
-    // إظهار شاشة التحميل
-    loading.style.display = 'block';
-    
-    try {
-        // التحقق من حجم الصورة وجودتها
-        if (imageElement.width < 50 || imageElement.height < 50) {
-            throw new Error('الصورة صغيرة جداً. يرجى استخدام صورة ذات جودة أفضل.');
+            loading.style.display = 'block';
+            
+            try {
+                const prediction = await model.predict(imageElement);
+                displayResults(prediction);
+            } catch (error) {
+                console.error('خطأ في تحليل الصورة:', error);
+                alert('حدث خطأ أثناء تحليل الصورة. يرجى المحاولة مرة أخرى.');
+            } finally {
+                loading.style.display = 'none';
+            }
         }
-
-        showStatus('جاري تحليل الصورة...', 'info');
-        
-        // تحليل الصورة باستخدام النموذج
-        const prediction = await model.predict(imageElement);
-        
-        // عرض النتائج
-        displayResults(prediction);
-        showStatus('✅ تم تحليل الصورة بنجاح!', 'success');
-        
-    } catch (error) {
-        console.error('خطأ في تحليل الصورة:', error);
-        showStatus('❌ حدث خطأ أثناء تحليل الصورة: ' + error.message, 'error');
-        
-        // عرض رسالة تفصيلية للمستخدم
-        setTimeout(() => {
-            alert('خطأ في تحليل الصورة:\n' + error.message + '\n\nتأكد من:\n- جودة الصورة\n- إضاءة كافية\n- تركيز الصورة على النبات');
-        }, 500);
-    } finally {
-        // إخفاء شاشة التحميل
-        loading.style.display = 'none';
-    }
-}
 
         function displayResults(predictions) {
             predictions.sort((a, b) => b.probability - a.probability);
@@ -1103,55 +1041,24 @@ async function analyzeImage(imageElement) {
             startCamera();
         });
 
-        // معالجة اختيار رفع الصورة
         uploadOption.addEventListener('click', () => {
-            if (!isModelLoaded) {
-                showStatus('يرجى الانتظار حتى يتم تحميل النموذج أولاً', 'error');
-                return;
-            }
             fileInput.click();
         });
 
-// استبدال معالجة حدث رفع الملفات الحالية
-fileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    
-    if (!file) {
-        return;
-    }
-
-    // التحقق من نوع الملف
-    if (!file.type.startsWith('image/')) {
-        showStatus('❌ الملف المختار ليس صورة. يرجى اختيار ملف صورة.', 'error');
-        return;
-    }
-
-    // التحقق من حجم الملف (حد أقصى 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-        showStatus('❌ حجم الصورة كبير جداً. يرجى اختيار صورة أصغر من 10MB.', 'error');
-        return;
-    }
-
-    const reader = new FileReader();
-    
-    reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-            showStatus('📸 تم تحميل الصورة بنجاح، جاري التحليل...', 'info');
-            analyzeImage(img);
-        };
-        img.onerror = function() {
-            showStatus('❌ تعذر تحميل الصورة. يرجى اختيار صورة أخرى.', 'error');
-        };
-        img.src = e.target.result;
-    };
-    
-    reader.onerror = function() {
-        showStatus('❌ تعذر قراءة الملف. يرجى اختيار صورة أخرى.', 'error');
-    };
-    
-    reader.readAsDataURL(file);
-});
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        analyzeImage(img);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
         captureBtn.addEventListener('click', () => {
             const canvas = document.createElement('canvas');
